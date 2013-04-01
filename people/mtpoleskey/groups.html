@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+
+    <link href='http://fonts.googleapis.com/css?family=Lato:300,400,700' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Cutive' rel='stylesheet' type='text/css'>
+
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-1.6.2.min.js"></script> 
+    <script type="text/javascript" src="jquery.tipsy.js"></script>
+
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <link href="tipsy.css" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+  <div id="info">
+      <h1>Foodstuffs Timelines</h1>
+    <div id="about">
+      <ul>
+          <li>Molly Taylor-Poleskey</li>
+          <li><span class="sc">Stanford University</span></li>
+          <li>Visualized by <a href="http://www.jasonheppler.org">Jason Heppler</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+
+  var margin = {top: 20, right: 30, bottom: 30, left: 40},
+      width = 400 - margin.right - margin.left,
+      height = 150 - margin.top - margin.bottom,
+      parse = d3.time.format("%Y").parse;
+
+  // scales
+  var x = d3.time.scale().range([0, width]),
+      y = d3.scale.linear().range([0, height]);
+
+  // load data
+  d3.csv("revised.csv", function(error, data) {
+
+    // nest values by group
+    var groups = d3.nest()
+        .key(function(d) { return d.group; })
+        .entries(data);
+
+    // parse dates and numbers, assume values are sorted by date
+    // compute the maximum totals per group
+    groups.forEach(function(s) {
+      s.values.forEach(function(d) { d.date = parse(d.date); d.totals = +d.totals; });
+      s.maxtotals = d3.max(s.values, function(d) { return d.totals; });
+    });
+
+    // compute the minimum and maximum date across groups
+    x.domain([
+      d3.min(groups, function(s) { return s.values[0].date; }),
+      d3.max(groups, function(s) { return s.values[s.values.length - 1].date; })
+    ]);
+    y.domain([0, d3.max(data, function(d) { return d.totals; })]);
+
+    // add an SVG element for each group
+    var svg = d3.select("body").selectAll("g")
+        .data(groups)
+      .enter().append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .each(function(d) {
+            var g = d3.select(this);
+            g.append("g")
+          .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    y.domain([0, d3.max(d.values, function(r) { return r.totals; })]);
+          
+    g.selectAll("rect.aevents")
+      .data(d.values)
+    .enter().append("rect")
+      .attr("height", function(p) {return y(p.totals)})
+      .attr("width", 5)
+      .attr("x", function(p, q) {return x(p.date)})
+      .attr("y", function(p) {return height - y(p.totals)})
+      // .on("click", function(p) {console.log(p.date)})
+      .attr("class", "bar")
+      })
+
+      $('svg rect').tipsy({
+        gravity: 's',
+        html: true,
+        title: function() {
+          var d = this.__data__, t = d.totals;
+          return t;
+        }
+      })
+      
+    svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(d3.svg.axis().scale(x).orient("bottom"));
+
+    svg.append("g")
+        .attr("class", "y axis")
+        .call(d3.svg.axis().scale(y).orient("left"));
+
+    // Add a small label for the group name.
+    svg.append("text")
+        .attr("x", width - 6)
+        .attr("y", height - 6)
+        .attr("text-anchor", "end")
+        .text(function(d) { return d.key; });
+
+  });
+
+  </script>
+
+</body>
+</html>
