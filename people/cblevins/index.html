@@ -4,186 +4,10 @@
 
 <link href='http://fonts.googleapis.com/css?family=Lato:300,400,700' rel='stylesheet' type='text/css'>
 <link href='http://fonts.googleapis.com/css?family=Cutive' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,600,700,400italic' rel='stylesheet' type='text/css'>
 
-<style>
+<link href="style.css" rel="stylesheet" type="text/css">
 
-body {
-    font-family: Lato, sans-serif;
-    color: rgb(51, 51, 51);
-    background: #f5f5f5;
-}
-
-td, th {
-    padding: 4px 8px;
-    font-size: 11px;
-}
-
-th {
-    font-weight: bold;
-    font-family: Cutive;
-    font-size: 13px;
-}
-
-#years_container {
-  float: left;
-  width: 180px;
-  border-right: 1px solid black;
-}
-
-/* Map Styles */
-.background {
-      fill: #a4bac7;
-}
-
-.foreground {
-      fill: none;
-      stroke: #333;
-      stroke-width: 1.5px;
-}
-
-.land {
-      fill: #d7c7ad;
-      stroke: #766951;
-}
-
-.boundary {
-      fill: none;
-      stroke: #a5967e;
-}
-.points-est {
-    fill: green;
-    fill-opacity: .5;
-    stroke: #fff;
-    stroke-width: 0.8;
-}
-
-/* Graph Styles */
-
-.axis path,
-.axis line {
-  fill: none;
-  stroke: #000;
-  shape-rendering: crispEdges;
-}
-
-.bar {
-  fill: #fd8507;
-}
-
-.x.axis path {
-  display: none;
-}
-
-.brush .extent {
-  stroke: #fff;
-  fill-opacity: .125;
-  shape-rendering: crispEdges;
-}
-
-.brush .resize path {
-  fill: #eee;
-  stroke: #666;
-}
-
-/* Header Styles */
-
-#info {
-    color: #333;
-    padding: 20px 0 3px;
-}
-
-#info h1 {
-    font: normal 400 28px/1.6 Cutive;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    padding: 0;
-    margin: 0;
-}
-
-#info p {
-    padding: 0;
-    margin: 0;
-}
-
-#about {
-    margin: 0;
-    text-align: right;
-    text-transform: none;
-    letter-spacing: 1px;
-    font-size: 0.75em;
-    line-height: 2.333em;
-    line-height: 3.5em;
-  }
-  #about:before {
-    display: block;
-    content: "";
-    height: 0;
-    border-top: 1px solid rgba(60, 60, 60, 0.25);
-    border-bottom: 1px solid #fff;
-  }
-  #about ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  #about ul li {
-    display: inline;
-  }
-  #about ul li:not(:first-child):before {
-    color: rgba(60, 60, 60, 0.5);
-    content: " · ";
-    padding: 0 4px;
-  }
-  #about ul li a {
-    text-decoration: underline;
-  }
-  
-  span.sc {
-	  text-transform: uppercase;
-  }
-  
-      a:link {
-          color: #fd8507;
-      }
-      a:visited {
-          color: #fd8507;
-      }
-      a:hover, a:active {
-          color: #005580;
-      }
-
-  #nav {
-    margin: 0;
-    text-align: center;
-    text-transform: none;
-    letter-spacing: 1px;
-    font-size: 0.75em;
-    line-height: 2.333em;
-    line-height: 3.5em;
-  }
-  #nav:before {
-    display: block;
-    content: "";
-    height: 0;
-  }
-  #nav ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  #nav ul li {
-    display: inline;
-  }
-  #nav ul li:not(:first-child):before {
-    color: rgba(60, 60, 60, 0.5);
-    content: " · ";
-    padding: 0 4px;
-  }
-  #nav ul li a {
-    text-decoration: underline;
-  }
-
-</style>
 </head>
 
 <body>
@@ -205,8 +29,17 @@ th {
 
 <script>
 
+// ////////////////
+// Define variables
+// ////////////////
+
 var width = 960,
-    height = 750;
+    height = 750,
+    barchart_margin = {top: 20, right: 20, bottom: 30, left: 40},
+    barchart_width = 960 - barchart_margin.left - barchart_margin.right,
+    barchart_height = 200 - barchart_margin.top - barchart_margin.bottom,
+    format_time = d3.time.format("%Y"),
+    bar_padding = 1;
 
 var projection = d3.geo.azimuthalEqualArea()
     .translate([680, 380])
@@ -226,9 +59,39 @@ var graticule = d3.geo.graticule()
     .extent([[-98 - 45, 38 - 45], [-98 + 45, 38 + 45]])
     .step([22.5 / 4, 22.5 / 4]);
 
+// Scales
+var x = d3.scale.ordinal().rangeRoundBands([0, barchart_width], .1);
+var y = d3.scale.linear().range([barchart_height, 0]);
+
 // Parse these columns in the CSV file
 var columns = ["Name", "Est", "Dis1", "R1", "Dis2", "Re2", "Dis3", "Re3", "Dis4", "Re4", "Latitude", "Longitude"];
 var year_columns = ["year", "frequency"];
+
+// Axis variables for the bar chart
+var x_axis_scale = d3.time.scale().range([0, barchart_width]),
+    y_axis_scale = d3.scale.linear().range([barchart_height, 0]);
+
+var x_axis = d3.svg.axis().scale(x).orient("bottom"),
+    y_axis = d3.svg.axis().scale(y).orient("left");
+
+var barchart = d3.select("body").append("svg")
+    .attr("width", barchart_width + barchart_margin.left + barchart_margin.right)
+    .attr("height", barchart_height + barchart_margin.top + barchart_margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + barchart_margin.left + "," + barchart_margin.top + ")");
+
+var brush = d3.svg.brush()
+    .x(x_axis_scale)
+    .on("brush", brush);
+
+// ////////////////
+// Define functions 
+// ////////////////
+
+
+/// ///////////////////////
+/// Time to get to work ///
+/// ///////////////////////
 
 // get ready
 queue()
@@ -236,12 +99,17 @@ queue()
     .defer(d3.csv, "blevins.csv")
     .await(ready);
 
+// ////////////////
+// Printing the map
+// ////////////////
+
 svg.append("path")
     .datum(graticule.outline)
     .attr("class", "background")
     .attr("d", path);
 
 function ready(error, us, post) {
+
   svg.append("path")
       .datum(topojson.object(us, us.objects.land))
       .attr("class", "land")
@@ -251,21 +119,21 @@ function ready(error, us, post) {
       .datum(topojson.mesh(us, us.objects.counties, function(a, b) { return a.id !== b.id; }))
       .attr("class", "boundary")
       .attr("d", path);
-	
 
-  // Elijah solution...  
+  // Printing all points
   svg.selectAll("circles.points")
       .data(post)
     .enter().append("circle")
       .attr("r", 3)
       .attr("class","points-est")
-      .attr("transform", function(d) {return "translate(" + projection([d.Longitude,d.Latitude]) + ")"; });
+      .attr("transform", function(d) {return "translate(" + projection([d.Longitude, d.Latitude]) + ")"; });
 }
 
-// --------------------------------------------
-// Printing the year frequency table, just for kicks...
-// --------------------------------------------
-d3.tsv("years_count.tsv", function(data) {
+// /////////////////////////////////
+// Printing the year frequency table
+// /////////////////////////////////
+
+d3.tsv("years_count.tsv", function(error, data) {
 
     // Print the table by placing a `div` with `id` of `container` below
     var table = d3.select("#years_container").append("table"),
@@ -295,11 +163,11 @@ d3.tsv("years_count.tsv", function(data) {
         .text(function(d) { return d.value; });
 });
 
-//  --------------------------------------------
-// Printing the entire CSV file
-//  --------------------------------------------
+// ///////////////////////////////////////
+// Printing the entire CSV file as a table
+// ///////////////////////////////////////
 
-d3.csv("blevins.csv", function(data) {
+d3.csv("blevins.csv", function(error, data) {
 
     // Print the table by placing a `div` with `id` of `container` below
     var table = d3.select("#container").append("table"),
@@ -329,45 +197,9 @@ d3.csv("blevins.csv", function(data) {
         .text(function(d) { return d.value; });
 });
 
-</script>
-
-<script>
-
-// ------------------------
-// Graphing the year counts
-// ------------------------
-
-var margin = {top: 20, right: 20, bottom: 30, left: 40},
-    width2 = 960 - margin.left - margin.right,
-    height2 = 200 - margin.top - margin.bottom;
-
-var parseDate = d3.time.format("%Y").parse;
-
-var x2 = d3.time.scale().range([0, width]);
-
-var brush = d3.svg.brush()
-    .x(x2)
-    .on("brush", brush);
-
-var x = d3.scale.ordinal()
-    .rangeRoundBands([0, width2], .1);
-
-var y = d3.scale.linear()
-    .range([height2, 0]);
-
-var xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom");
-
-var yAxis = d3.svg.axis()
-    .scale(y)
-    .orient("left");
-
-var chart = d3.select("body").append("svg")
-    .attr("width", width2 + margin.left + margin.right)
-    .attr("height", height2 + margin.top + margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+// ///////////////////////////////////////
+// Graphing the year counts as a bar chart
+// ///////////////////////////////////////
 
 d3.tsv("years_count.tsv", function(error, data) {
 
@@ -378,14 +210,16 @@ d3.tsv("years_count.tsv", function(error, data) {
   x.domain(data.map(function(d) { return d.year; }));
   y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
 
-  chart.append("g")
+  // x axis
+  barchart.append("g")
       .attr("class", "x axis")
-      .attr("transform", "translate(0," + height2 + ")")
-      .call(xAxis);
+      .attr("transform", "translate(0," + barchart_height + ")")
+      .call(x_axis);
 
-  chart.append("g")
+  // y axis
+  barchart.append("g")
       .attr("class", "y axis")
-      .call(yAxis)
+      .call(y_axis)
     .append("text")
       .attr("transform", "rotate(-90)")
       .attr("y", 6)
@@ -393,29 +227,25 @@ d3.tsv("years_count.tsv", function(error, data) {
       .style("text-anchor", "end")
       .text("Openings");
 
-  chart.append(".bar")
+  // Draw the bars
+  barchart.selectAll(".bar")
       .data(data)
     .enter().append("rect")
       .attr("class", "bar")
       .attr("x", function(d) { return x(d.year); })
       .attr("width", x.rangeBand())
       .attr("y", function(d) { return y(d.frequency); })
-      .attr("height", function(d) { return height2 - y(d.frequency); });
+      .attr("height", function(d) { return barchart_height - y(d.frequency); });
 
-  chart.append("g")
+  // Draw the brush
+  barchart.append("g")
       .attr("class", "x brush")
       .call(brush)
     .selectAll("rect")
       .attr("y", -6)
-      .attr("height", height2 + 7);
+      .attr("height", barchart_height + 7);
 
 });
-
-function brush() {
-  x.domain(brush.empty() ? x2.domain() : brush.extent());
-  focus.select("path").attr("d", area);
-  focus.select(".x.axis").call(xAxis);
-}
 
 </script>
 
@@ -426,7 +256,7 @@ function brush() {
         <li><a href="#">Western Expansion</a></li>
         <li><a href="#">Gilded Age</a></li>
     </ul>
-  </div>
+</div>
 
 <div id="years_container"></div>
 
