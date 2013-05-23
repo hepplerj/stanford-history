@@ -15,6 +15,7 @@
 <script src="http://d3js.org/d3.v3.min.js"></script>
 <script src="http://d3js.org/queue.v1.min.js"></script>
 <script src="http://d3js.org/topojson.v0.min.js"></script>
+<script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
 
 <div id="info">
     <h1>The Geography of the Nineteenth-Century Post</h1>
@@ -30,7 +31,7 @@
 <script>
 
 // ////////////////
-// Define variables
+// Global variables
 // ////////////////
 
 var width = 960,
@@ -38,16 +39,28 @@ var width = 960,
     barchart_margin = {top: 20, right: 20, bottom: 30, left: 40},
     barchart_width = 960 - barchart_margin.left - barchart_margin.right,
     barchart_height = 200 - barchart_margin.top - barchart_margin.bottom,
-    format_time = d3.time.format("%Y"),
+    parse_time = d3.time.format("%1m/%e/%Y").parse,
+    padding = 20,
     bar_padding = 1;
 
+    // azimuth projection
 var projection = d3.geo.azimuthalEqualArea()
     .translate([680, 380])
     .rotate([118.9, 0])
     .center([0, 44.03])
     .scale(1200 * 7);
 
-var path = d3.geo.path()
+    // satellite projection
+var projection2 = d3.geo.satellite()
+    .distance(1.1)
+    .scale(5500)
+    .rotate([118.00, -34.50, 32.12])
+    .center([-2, 5])
+    .tilt(25)
+    .clipAngle(Math.acos(1 / 1.1) * 180 / Math.PI - 1e-6)
+    .precision(.1);
+
+path = d3.geo.path()
     .projection(projection)
     .pointRadius(1.5);
 
@@ -60,19 +73,12 @@ var graticule = d3.geo.graticule()
     .step([22.5 / 4, 22.5 / 4]);
 
 // Scales
-var x = d3.scale.ordinal().rangeRoundBands([0, barchart_width], .1);
+var x = d3.scale.ordinal().rangeRoundBands([0, width], .1);
 var y = d3.scale.linear().range([barchart_height, 0]);
 
 // Parse these columns in the CSV file
 var columns = ["Name", "Est", "Dis1", "R1", "Dis2", "Re2", "Dis3", "Re3", "Dis4", "Re4", "Latitude", "Longitude"];
 var year_columns = ["year", "frequency"];
-
-// Axis variables for the bar chart
-var x_axis_scale = d3.time.scale().range([0, barchart_width]),
-    y_axis_scale = d3.scale.linear().range([barchart_height, 0]);
-
-var x_axis = d3.svg.axis().scale(x).orient("bottom"),
-    y_axis = d3.svg.axis().scale(y).orient("left");
 
 var barchart = d3.select("body").append("svg")
     .attr("width", barchart_width + barchart_margin.left + barchart_margin.right)
@@ -80,14 +86,45 @@ var barchart = d3.select("body").append("svg")
   .append("g")
     .attr("transform", "translate(" + barchart_margin.left + "," + barchart_margin.top + ")");
 
-var brush = d3.svg.brush()
-    .x(x_axis_scale)
-    .on("brush", brush);
+parse_date = d3.time.format("%Y").parse;
+
+brush = d3.svg.brush()
+    .x(x)
+    .on("brushstart", brushstart)
+    .on("brush", brushmove)
+    .on("brushend", brushend);
 
 // ////////////////
-// Define functions 
+// Global functions 
 // ////////////////
 
+function colorByEst(sentObj, arbitraryDate) {
+    if (sentObj.Est < arbitraryDate != "") {
+    	return "red";
+    }
+    if (sentObj.Est > arbitraryDate) {
+    	return "blue";
+    }
+
+    if (sentObj.Dis1 < arbitraryDate && sentObj.Dis1) {
+    	return "yellow";
+    }
+}
+
+// Clear the previously-active brush, if any.
+function brushstart(p) {
+  // function
+}
+
+// Highlight the selected circles.
+function brushmove(p) {
+  // function
+}
+
+// If the brush is empty, select all circles.
+function brushend() {
+  if (brush.empty()) svg.selectAll(".hidden").classed("hidden", false);
+}
 
 /// ///////////////////////
 /// Time to get to work ///
@@ -99,9 +136,7 @@ queue()
     .defer(d3.csv, "blevins.csv")
     .await(ready);
 
-// ////////////////
 // Printing the map
-// ////////////////
 
 svg.append("path")
     .datum(graticule.outline)
@@ -109,7 +144,7 @@ svg.append("path")
     .attr("d", path);
 
 function ready(error, us, post) {
-
+	exposedpost = post;
   svg.append("path")
       .datum(topojson.object(us, us.objects.land))
       .attr("class", "land")
@@ -121,17 +156,27 @@ function ready(error, us, post) {
       .attr("d", path);
 
   // Printing all points
-  svg.selectAll("circles.points")
-      .data(post)
-    .enter().append("circle")
+  postoffices = svg.selectAll("g.points-est")
+    .data(post)
+    .enter()
+	.append("g")
+	.attr("class","post-label")
+	.attr("transform", function(d) {return "translate(" + projection([d["Longitude"], d["Latitude"]]) + ")"; })
+	.on("mouseover", showLabel)
+	.on("mouseout", function() {d3.selectAll("text.postlabel").remove();});
+	
+	postoffices
+	  .append("circle")
       .attr("r", 3)
-      .attr("class","points-est")
-      .attr("transform", function(d) {return "translate(" + projection([d.Longitude, d.Latitude]) + ")"; });
+      .attr("class","points-est");
 }
 
-// /////////////////////////////////
+function showLabel(d,i) {
+	d3.select(this).append("text").attr("class", "postlabel").text(d["Name"]);
+	this.parentNode.appendChild(this);
+}
+
 // Printing the year frequency table
-// /////////////////////////////////
 
 d3.tsv("years_count.tsv", function(error, data) {
 
@@ -163,9 +208,7 @@ d3.tsv("years_count.tsv", function(error, data) {
         .text(function(d) { return d.value; });
 });
 
-// ///////////////////////////////////////
 // Printing the entire CSV file as a table
-// ///////////////////////////////////////
 
 d3.csv("blevins.csv", function(error, data) {
 
@@ -197,18 +240,21 @@ d3.csv("blevins.csv", function(error, data) {
         .text(function(d) { return d.value; });
 });
 
-// ///////////////////////////////////////
 // Graphing the year counts as a bar chart
-// ///////////////////////////////////////
 
 d3.tsv("years_count.tsv", function(error, data) {
 
+  // Coercion since CSV is untyped
   data.forEach(function(d) {
     d.frequency = +d.frequency;
   });
 
-  x.domain(data.map(function(d) { return d.year; }));
-  y.domain([0, d3.max(data, function(d) { return d.frequency; })]);
+  x.domain(data.map(function(d) { return d["year"]; }));
+  y.domain([0, d3.max(data, function(d) { return d["frequency"]; })]);
+
+  // Axis variables for the bar chart
+  x_axis = d3.svg.axis().scale(x).orient("bottom"),
+  y_axis = d3.svg.axis().scale(y).orient("left");
 
   // x axis
   barchart.append("g")
@@ -258,6 +304,14 @@ d3.tsv("years_count.tsv", function(error, data) {
     </ul>
 </div>
 
-<div id="years_container"></div>
+<!-- <div id="selections">
+  <h4>Offices</h4>
+  <form>
+    <input type="checkbox" name="maps" value="All">All<br>
+    <input type="checkbox" name="maps" value="Established">Established<br>
+    <input type="checkbox" name="maps" value="Reestablished">Reestablished
+  </form>
+</div> -->
 
+<!-- <div id="years_container"></div>-->
 <div id="container"></div>

@@ -6,19 +6,29 @@ body {
 
 td, th {
     padding: 4px 8px;
-    font-size: 11px;
+    font-size: 14px;
+}
+
+td {
+    border-left: 1px solid black;
 }
 
 th {
     font-weight: bold;
-    font-family: Cutive;
-    font-size: 13px;
+    font-size: 14px;
 }
 
 #years_container {
   float: left;
   width: 180px;
   border-right: 1px solid black;
+}
+
+#selections {
+  float: left;
+  width: 125;
+  padding: 15px;
+  background: #ececec;
 }
 
 /* Map Styles */
@@ -48,6 +58,14 @@ th {
     stroke-width: 0.8;
 }
 
+.post-label {
+	fill: white;
+}
+
+.postlabel {
+  font: 18px/1.8 white;
+}
+
 /* Graph Styles */
 
 .axis path,
@@ -59,10 +77,6 @@ th {
 
 .bar {
   fill: #fd8507;
-}
-
-.x.axis path {
-  display: none;
 }
 
 .brush .extent {
@@ -173,3 +187,4 @@ th {
   #nav ul li a {
     text-decoration: underline;
   }
+  
