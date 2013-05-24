@@ -23,7 +23,7 @@
 		<ul>
 		    <li>Cameron Blevins</li>
 		    <li><span class="sc">Stanford University</span></li>
-        <li>Visualized by <a href="http://www.jasonheppler.org">Jason Heppler</a></li>
+        <!-- <li>Visualized by <a href="http://www.jasonheppler.org">Jason Heppler</a></li> -->
 		</ul>
 	</div>
 </div>
@@ -41,7 +41,8 @@ var width = 960,
     barchart_height = 200 - barchart_margin.top - barchart_margin.bottom,
     parse_time = d3.time.format("%1m/%e/%Y").parse,
     padding = 20,
-    bar_padding = 1;
+    bar_padding = 1,
+    formatNumber = d3.format(".3r");
 
     // azimuth projection
 var projection = d3.geo.azimuthalEqualArea()
@@ -90,9 +91,9 @@ parse_date = d3.time.format("%Y").parse;
 
 brush = d3.svg.brush()
     .x(x)
-    .on("brushstart", brushstart)
-    .on("brush", brushmove)
-    .on("brushend", brushend);
+    .on("brush", brushed);
+    // .on("brushstart", brushdown)
+    // .on("brushend", brushdown);
 
 // ////////////////
 // Global functions 
@@ -111,20 +112,18 @@ function colorByEst(sentObj, arbitraryDate) {
     }
 }
 
-// Clear the previously-active brush, if any.
-function brushstart(p) {
-  // function
+function brushed() {
+  // x.domain(brush.empty() ? x2.domain() : brush.extent());
+  // barchart.select(".x.axis").call(x_axis);
+  // barchart.attr("d", function(d) { return d["year"]; });
+  // barchart.attr("year_return", function(d) { return d.year; });
+  var b = brush.empty() ? x.domain() : brush.extent();
+  for(var i = 0; i > 0; i++){
+    console.log(b);
+  }
+  console.log(b);
 }
 
-// Highlight the selected circles.
-function brushmove(p) {
-  // function
-}
-
-// If the brush is empty, select all circles.
-function brushend() {
-  if (brush.empty()) svg.selectAll(".hidden").classed("hidden", false);
-}
 
 /// ///////////////////////
 /// Time to get to work ///
@@ -157,18 +156,28 @@ function ready(error, us, post) {
 
   // Printing all points
   postoffices = svg.selectAll("g.points-est")
-    .data(post)
-    .enter()
-	.append("g")
-	.attr("class","post-label")
-	.attr("transform", function(d) {return "translate(" + projection([d["Longitude"], d["Latitude"]]) + ")"; })
-	.on("mouseover", showLabel)
-	.on("mouseout", function() {d3.selectAll("text.postlabel").remove();});
-	
+      .data(post)
+    .enter().append("g")
+	   .attr("class","post-label")
+	   .attr("transform", function(d) {return "translate(" + projection([d["Longitude"], d["Latitude"]]) + ")"; })
+	   .on("mouseover", showLabel)
+	   .on("mouseout", function() {d3.selectAll("text.postlabel").remove();});
+  // For future use -- a function to take the salaries of the post offices and resize
+  // the points based on their amount.	
+  // .attr("r", function(d) {
+  //   return Math.sqrt(parseInt(d.salaries) * 0.00004);
+  // })
+
 	postoffices
 	  .append("circle")
       .attr("r", 3)
       .attr("class","points-est");
+
+  // testing the coloring of points
+  max_date = "6/15/1885";
+  min_date = "6/15/1885";
+  d3.selectAll("circle.points-est").style("fill", function(d) { return d.Dis1 < max_date && d.Dist1 != "" ? "yellow" : d.Est > max_date ? "blue" : "red" })
+
 }
 
 function showLabel(d,i) {
@@ -176,81 +185,56 @@ function showLabel(d,i) {
 	this.parentNode.appendChild(this);
 }
 
-// Printing the year frequency table
+// // // Printing the entire CSV file as a table
+// // TODO: 
+// //    1) Modify this so it auto-updates as a brush event is created.
 
-d3.tsv("years_count.tsv", function(error, data) {
+// d3.csv("blevins.csv", function(error, data) {
 
-    // Print the table by placing a `div` with `id` of `container` below
-    var table = d3.select("#years_container").append("table"),
-        thead = table.append("thead"),
-        tbody = table.append("tbody");
+//     // Print the table by placing a `div` with `id` of `container` below
+//     var table = d3.select("#container").append("table"),
+//         thead = table.append("thead"),
+//         tbody = table.append("tbody");
 
-    thead.append("tr")
-      .selectAll("th")
-        .data(year_columns)
-      .enter()
-        .append("th")
-        .text(function(column) { return column; });
+//     thead.append("tr")
+//       .selectAll("th")
+//         .data(columns)
+//       .enter()
+//         .append("th")
+//         .text(function(column) { return column; });
 
-    var rows = tbody.selectAll("tr")
-        .data(data)
-      .enter()
-        .append("tr");
+//     var rows = tbody.selectAll("tr")
+//         .data(data)
+//       .enter()
+//         .append("tr");
 
-    var cells = rows.selectAll("td")
-        .data(function(row) {
-            return year_columns.map(function(column) {
-                return {column: column, value: row[column]};
-            });
-        })
-      .enter()
-        .append("td")
-        .text(function(d) { return d.value; });
-});
+//     var cells = rows.selectAll("td")
+//         .data(function(row) {
+//             return columns.map(function(column) {
+//                 return {column: column, value: row[column]};
+//             });
+//         })
+//       .enter()
+//         .append("td")
+//         .text(function(d) { return d.value; });
+// });
 
-// Printing the entire CSV file as a table
-
-d3.csv("blevins.csv", function(error, data) {
-
-    // Print the table by placing a `div` with `id` of `container` below
-    var table = d3.select("#container").append("table"),
-        thead = table.append("thead"),
-        tbody = table.append("tbody");
-
-    thead.append("tr")
-      .selectAll("th")
-        .data(columns)
-      .enter()
-        .append("th")
-        .text(function(column) { return column; });
-
-    var rows = tbody.selectAll("tr")
-        .data(data)
-      .enter()
-        .append("tr");
-
-    var cells = rows.selectAll("td")
-        .data(function(row) {
-            return columns.map(function(column) {
-                return {column: column, value: row[column]};
-            });
-        })
-      .enter()
-        .append("td")
-        .text(function(d) { return d.value; });
-});
-
+// ***************************************
 // Graphing the year counts as a bar chart
+// ***************************************
 
 d3.tsv("years_count.tsv", function(error, data) {
+// d3.csv("blevins.csv"), function(error, data) {
 
   // Coercion since CSV is untyped
   data.forEach(function(d) {
-    d.frequency = +d.frequency;
+    d["frequency"] = +d.frequency;
+    d["year"] = new Date(d.year);
   });
 
   x.domain(data.map(function(d) { return d["year"]; }));
   y.domain([0, d3.max(data, function(d) { return d["frequency"]; })]);
+  x_time_scale = d3.time.scale();
 
   // Axis variables for the bar chart
   x_axis = d3.svg.axis().scale(x).orient("bottom"),
@@ -259,8 +243,8 @@ d3.tsv("years_count.tsv", function(error, data) {
   // x axis
   barchart.append("g")
       .attr("class", "x axis")
-      .attr("transform", "translate(0," + barchart_height + ")")
-      .call(x_axis);
+      .call(x_axis)
+      .attr("transform", "translate(0," + barchart_height + ")");
 
   // y axis
   barchart.append("g")
@@ -282,6 +266,8 @@ d3.tsv("years_count.tsv", function(error, data) {
       .attr("width", x.rangeBand())
       .attr("y", function(d) { return y(d.frequency); })
       .attr("height", function(d) { return barchart_height - y(d.frequency); });
+
+  //TODO: Ask Elijah why I have to assume dates are in order for this chart to look right
 
   // Draw the brush
   barchart.append("g")
@@ -305,6 +291,7 @@ d3.tsv("years_count.tsv", function(error, data) {
 </div>
 
 <!-- <div id="selections">
+  TOOD: For the future: be able to click on a time-framed event and create the brush event for a given period of time.
   <h4>Offices</h4>
   <form>
     <input type="checkbox" name="maps" value="All">All<br>
