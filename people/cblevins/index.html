@@ -3,8 +3,7 @@
 <meta charset="utf-8">
 
 <link href='http://fonts.googleapis.com/css?family=Lato:300,400,700' rel='stylesheet' type='text/css'>
-<link href='http://fonts.googleapis.com/css?family=Cutive' rel='stylesheet' type='text/css'>
-<link href='http://fonts.googleapis.com/css?family=Source+Sans+Pro:200,400,600,700,400italic' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Yanone+Kaffeesatz:400,300' rel='stylesheet' type='text/css'>
 
 <link href="style.css" rel="stylesheet" type="text/css">
 
@@ -12,7 +11,10 @@
 
 <body>
 
-<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="lib/d3.js"></script>
+<script src="lib/crossfilter.js"></script>
+<!-- <script src="lib/queue.js"></script> -->
+<!-- <script src="lib/topojson.js"></script> -->
 <script src="http://d3js.org/queue.v1.min.js"></script>
 <script src="http://d3js.org/topojson.v0.min.js"></script>
 <script src="http://d3js.org/d3.geo.projection.v0.min.js"></script>
@@ -23,28 +25,42 @@
 		<ul>
 		    <li>Cameron Blevins</li>
 		    <li><span class="sc">Stanford University</span></li>
-        <!-- <li>Visualized by <a href="http://www.jasonheppler.org">Jason Heppler</a></li> -->
 		</ul>
 	</div>
 </div>
 
 <script>
 
-// ////////////////
+//*********************************************
 // Global variables
-// ////////////////
+//*********************************************
 
 var width = 960,
     height = 750,
     barchart_margin = {top: 20, right: 20, bottom: 30, left: 40},
     barchart_width = 960 - barchart_margin.left - barchart_margin.right,
     barchart_height = 200 - barchart_margin.top - barchart_margin.bottom,
-    parse_time = d3.time.format("%1m/%e/%Y").parse,
     padding = 20,
-    bar_padding = 1,
-    formatNumber = d3.format(".3r");
+    bar_padding = 1;
 
-    // azimuth projection
+// Scales
+var x = d3.scale.ordinal().rangeRoundBands([0, width], .1);
+var y = d3.scale.linear().range([barchart_height, 0]);
+
+var parse_date = d3.time.format("%Y").parse;
+
+// Get our data ready
+//*********************************************
+queue()
+    .defer(d3.json, "us.json")
+    .defer(d3.csv, "blevins.csv")
+    .await(ready);
+
+//*********************************************
+// Map
+//*********************************************
+
+   // azimuth projection
 var projection = d3.geo.azimuthalEqualArea()
     .translate([680, 380])
     .rotate([118.9, 0])
@@ -52,6 +68,7 @@ var projection = d3.geo.azimuthalEqualArea()
     .scale(1200 * 7);
 
     // satellite projection
+    // use this one instead?
 var projection2 = d3.geo.satellite()
     .distance(1.1)
     .scale(5500)
@@ -61,10 +78,6 @@ var projection2 = d3.geo.satellite()
     .clipAngle(Math.acos(1 / 1.1) * 180 / Math.PI - 1e-6)
     .precision(.1);
 
-path = d3.geo.path()
-    .projection(projection)
-    .pointRadius(1.5);
-
 var svg = d3.select("body").append("svg")
     .attr("width", width)
     .attr("height", height);
@@ -73,67 +86,9 @@ var graticule = d3.geo.graticule()
     .extent([[-98 - 45, 38 - 45], [-98 + 45, 38 + 45]])
     .step([22.5 / 4, 22.5 / 4]);
 
-// Scales
-var x = d3.scale.ordinal().rangeRoundBands([0, width], .1);
-var y = d3.scale.linear().range([barchart_height, 0]);
-
-// Parse these columns in the CSV file
-var columns = ["Name", "Est", "Dis1", "R1", "Dis2", "Re2", "Dis3", "Re3", "Dis4", "Re4", "Latitude", "Longitude"];
-var year_columns = ["year", "frequency"];
-
-var barchart = d3.select("body").append("svg")
-    .attr("width", barchart_width + barchart_margin.left + barchart_margin.right)
-    .attr("height", barchart_height + barchart_margin.top + barchart_margin.bottom)
-  .append("g")
-    .attr("transform", "translate(" + barchart_margin.left + "," + barchart_margin.top + ")");
-
-parse_date = d3.time.format("%Y").parse;
-
-brush = d3.svg.brush()
-    .x(x)
-    .on("brush", brushed);
-    // .on("brushstart", brushdown)
-    // .on("brushend", brushdown);
-
-// ////////////////
-// Global functions 
-// ////////////////
-
-function colorByEst(sentObj, arbitraryDate) {
-    if (sentObj.Est < arbitraryDate != "") {
-    	return "red";
-    }
-    if (sentObj.Est > arbitraryDate) {
-    	return "blue";
-    }
-
-    if (sentObj.Dis1 < arbitraryDate && sentObj.Dis1) {
-    	return "yellow";
-    }
-}
-
-function brushed() {
-  // x.domain(brush.empty() ? x2.domain() : brush.extent());
-  // barchart.select(".x.axis").call(x_axis);
-  // barchart.attr("d", function(d) { return d["year"]; });
-  // barchart.attr("year_return", function(d) { return d.year; });
-  var b = brush.empty() ? x.domain() : brush.extent();
-  for(var i = 0; i > 0; i++){
-    console.log(b);
-  }
-  console.log(b);
-}
-
-
-/// ///////////////////////
-/// Time to get to work ///
-/// ///////////////////////
-
-// get ready
-queue()
-    .defer(d3.json, "us.json")
-    .defer(d3.csv, "blevins.csv")
-    .await(ready);
+path = d3.geo.path()
+    .projection(projection)
+    .pointRadius(1.5);
 
 // Printing the map
 
@@ -143,7 +98,8 @@ svg.append("path")
     .attr("d", path);
 
 function ready(error, us, post) {
-	exposedpost = post;
+  exposedpost = post;
+
   svg.append("path")
       .datum(topojson.object(us, us.objects.land))
       .attr("class", "land")
@@ -158,83 +114,123 @@ function ready(error, us, post) {
   postoffices = svg.selectAll("g.points-est")
       .data(post)
     .enter().append("g")
-	   .attr("class","post-label")
-	   .attr("transform", function(d) {return "translate(" + projection([d["Longitude"], d["Latitude"]]) + ")"; })
-	   .on("mouseover", showLabel)
-	   .on("mouseout", function() {d3.selectAll("text.postlabel").remove();});
-  // For future use -- a function to take the salaries of the post offices and resize
-  // the points based on their amount.	
+     .attr("class","post-label")
+     .attr("transform", function(d) {return "translate(" + projection([d["Longitude"], d["Latitude"]]) + ")"; })
+     .on("mouseover", showLabel)
+     .on("mouseout", function() {d3.selectAll("text.postlabel").remove(); });
+  // TODO(jheppler): For future use -- a function to take the salaries of the post offices and resize
+  // the points based on their amount.
   // .attr("r", function(d) {
   //   return Math.sqrt(parseInt(d.salaries) * 0.00004);
   // })
 
-	postoffices
-	  .append("circle")
+  postoffices
+    .append("circle")
       .attr("r", 3)
       .attr("class","points-est");
 
-  // testing the coloring of points
-  max_date = "6/15/1885";
-  min_date = "6/15/1885";
-  d3.selectAll("circle.points-est").style("fill", function(d) { return d.Dis1 < max_date && d.Dist1 != "" ? "yellow" : d.Est > max_date ? "blue" : "red" })
+  // temporary code; testing the coloring of points
+  test_date = "1885-6-15";
+  d3.selectAll("circle.points-est").style("fill", function(d) { return d.Dis1 < test_date && d.Dis1 != "" ? "rgb(255, 255, 191)" : d.Est > test_date ? "rgb(215, 25, 28)" : "rgb(44, 123, 182)" })
+
+  // *********************************************
+  // Printing the entire CSV file as a table
+  //*********************************************
+
+  // TODO(jheppler): Modify this so it auto-updates as a brush event is created.
+
+  // Parse these columns in the CSV file
+  var columns = ["Name", "Est", "Dis1", "R1", "Dis2", "Re2", "Dis3", "Re3", "Dis4", "Re4", "Latitude", "Longitude"];
+  var year_columns = ["year", "frequency"];
+
+  d3.csv("blevins.csv", function(error, data) {
+
+      // Print the table by placing a `div` with `id` of `container` below
+      var table = d3.select("#container").append("table"),
+          thead = table.append("thead"),
+          tbody = table.append("tbody");
+
+      thead.append("tr")
+      .selectAll("th")
+        .data(columns)
+      .enter()
+        .append("th")
+        .text(function(column) { return column; });
+
+      var rows = tbody.selectAll("tr")
+        .data(data)
+      .enter()
+        .append("tr");
+
+      var cells = rows.selectAll("td")
+        .data(function(row) {
+            return columns.map(function(column) {
+                return {column: column, value: row[column]};
+            });
+        })
+      .enter()
+        .append("td")
+        .text(function(d) { return d.value; });
+
+});
+
+// *********************************************
+// Callbacks
+// *********************************************
+
+  // On hover, show point labels
+  function showLabel(d,i) {
+    d3.select(this).append("text").attr("class", "postlabel").text(d["Name"]);
+    this.parentNode.appendChild(this);
+  }
+
+  // Function that colors the points on the map based on brush selection
+  function colorByEst(sentObj, arbitraryDate) {
+    var closestDate = d3.max(data, function(d) { return d.year  });
+      if (sentObj.Est < arbitraryDate != "") {
+        return "red";
+      }
+      if (sentObj.Est > arbitraryDate) {
+        return "blue";
+      }
+
+      if (sentObj.Dis1 < arbitraryDate && sentObj.Dis1) {
+        return "yellow";
+      }
+  }
 
 }
 
-function showLabel(d,i) {
-	d3.select(this).append("text").attr("class", "postlabel").text(d["Name"]);
-	this.parentNode.appendChild(this);
-}
-
-// // // Printing the entire CSV file as a table
-// // TODO: 
-// //    1) Modify this so it auto-updates as a brush event is created.
-
-// d3.csv("blevins.csv", function(error, data) {
-
-//     // Print the table by placing a `div` with `id` of `container` below
-//     var table = d3.select("#container").append("table"),
-//         thead = table.append("thead"),
-//         tbody = table.append("tbody");
-
-//     thead.append("tr")
-//       .selectAll("th")
-//         .data(columns)
-//       .enter()
-//         .append("th")
-//         .text(function(column) { return column; });
-
-//     var rows = tbody.selectAll("tr")
-//         .data(data)
-//       .enter()
-//         .append("tr");
-
-//     var cells = rows.selectAll("td")
-//         .data(function(row) {
-//             return columns.map(function(column) {
-//                 return {column: column, value: row[column]};
-//             });
-//         })
-//       .enter()
-//         .append("td")
-//         .text(function(d) { return d.value; });
-// });
-
-// ***************************************
+//*********************************************
 // Graphing the year counts as a bar chart
-// ***************************************
+//*********************************************
 
-d3.tsv("years_count.tsv", function(error, data) {
-// d3.csv("blevins.csv"), function(error, data) {
+var barchart = d3.select("body").append("svg")
+    .attr("width", barchart_width + barchart_margin.left + barchart_margin.right)
+    .attr("height", barchart_height + barchart_margin.top + barchart_margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + barchart_margin.left + "," + barchart_margin.top + ")");
+
+// d3.csv("blevins.csv"), function(error, data) { <-- need to convert this
+d3.csv("years_count.csv", function(error, data) {
+
+    brush = d3.svg.brush()
+        .x(x)
+        .on("brush", brushed);
+     // .on("brushstart", brushdown)
+     // .on("brushend", brushdown);
 
   // Coercion since CSV is untyped
   data.forEach(function(d) {
-    d["frequency"] = +d.frequency;
-    d["year"] = new Date(d.year);
+    d["frequency"] = +d["frequency"];
+    d["year"] = d3.time.format("%Y").parse(d["year"]).getFullYear();
   });
 
   x.domain(data.map(function(d) { return d["year"]; }));
-  y.domain([0, d3.max(data, function(d) { return d["frequency"]; })]);
   x_time_scale = d3.time.scale();
+  time_scale = d3.scale.linear()
+                  .domain([0, function(d) { return d["year"]; }])
+                  .range([0, width]);
 
   // Axis variables for the bar chart
   x_axis = d3.svg.axis().scale(x).orient("bottom"),
@@ -267,7 +263,7 @@ d3.tsv("years_count.tsv", function(error, data) {
       .attr("y", function(d) { return y(d.frequency); })
       .attr("height", function(d) { return barchart_height - y(d.frequency); });
 
-  //TODO: Ask Elijah why I have to assume dates are in order for this chart to look right
+  // TODO(jheppler): Ask Elijah why I have to assume dates are in order for this chart to look right
 
   // Draw the brush
   barchart.append("g")
@@ -277,10 +273,26 @@ d3.tsv("years_count.tsv", function(error, data) {
       .attr("y", -6)
       .attr("height", barchart_height + 7);
 
+  // ****************************************
+  // Callback
+  // ****************************************
+
+  function brushed() {
+    var b = brush.empty() ? x.domain() : brush.extent();
+    console.log(b);
+  }
+
 });
 
 </script>
 
+<p>The visualizations above (built with <a href="http://d3js.org">D3</a>) plot the opening, closing, and in some cases the re-opening and re-closing, of nearly 1,500 post offices in Oregon between 1847 and 1902. Click and drag on the bar chart to filter the post offices. The colored points indicate whether a post office was opened, existed, or closed during that time period. The table below provides details on demand.</p>
+
+<p>The <span style="color: red;">Red</span> points blah blah blah, the <span style="color: blue;">Blue</span> points blah blah blah.... Hover over points on the map to view more information about that post office.</p>
+
+<p>Some questions to consider: What happens <a href="">year-by-year</a>? Do post offices react to national events like the <a href="">Civil War</a>? Are there unique groupings of post offices based on <a href="">historical events in Oregon?</a> Are there patterns to <a href="">closed</a> or <a href="">opened</a> post offices?</p>
+
+<!-- TODO: For the future: be able to click on a time-framed event and create the brush event for a given period of time. -->
 <div id="nav">
     <ul>
         <li><a href="#">Single Year</a></li>
@@ -290,15 +302,21 @@ d3.tsv("years_count.tsv", function(error, data) {
     </ul>
 </div>
 
-<!-- <div id="selections">
-  TOOD: For the future: be able to click on a time-framed event and create the brush event for a given period of time.
+<div id="selections">
   <h4>Offices</h4>
   <form>
     <input type="checkbox" name="maps" value="All">All<br>
     <input type="checkbox" name="maps" value="Established">Established<br>
     <input type="checkbox" name="maps" value="Reestablished">Reestablished
   </form>
-</div> -->
+</div>
 
 <!-- <div id="years_container"></div>-->
 <div id="container"></div>
+
+<footer>
+  <span style="float:right;">
+    Released under the <a href="http://www.apache.org/licenses/LICENSE-2.0.html">Apache License 2.0</a>.
+  </span>
+  Visualized by <a href="http://www.jasonheppler.org">Jason Heppler</a> and Tara Balakrishnan. Special thanks to Elijah Meeks.
+</footer>
