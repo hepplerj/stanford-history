@@ -129,6 +129,132 @@ function ready(error, us, post) {
       .attr("r", 3)
       .attr("class","points-est");
 
+// Color function - determining the color of points based on the extent 
+// of the brush
+var arrSize = 4;
+function colorByEst(sentObj, arbitraryDateMin, arbitraryDateMax) {
+    var estArr = [sentObj.Est, sentObj.Re2, sentObj.Re3, sentObj.Re4];
+    var disArr = [sentObj.Dis1, sentObj.Dis2, sentObj.Dis3, sentObj.Dis4];
+
+    var estArrTemp[];
+    var disArrTemp[];
+
+    var preBrushEst[];
+    var preBrushDis[];
+
+    var inBrushEst[];
+    var inBrushDis[];
+
+    var countE = 0;
+    var countD = 0;
+
+    //create the less than brush end arrays
+    for(int i = 0; i < arrSize, i++) {
+      if (estArr[i] <= arbitraryDateMax) {
+        estArrTemp[countE] = estArr[i];
+        countE ++;
+      }
+      if (disArr[i] <= arbitraryDateMax) {
+        disArrTemp[countD] = estArr[i];
+        countD ++;
+      }
+    }
+
+    //create the pre-brush arrays
+    countE = 0;
+    countD = 0;
+    for(int i = 0; i < arrSize, i++) {
+      if (estArr[i] <= arbitraryDateMin) {
+        preBrushEst[countE] = estArr[i];
+        countE ++;
+      }
+      if (disArr[i] <= arbitraryDateMin) {
+        preBrushDis[countD] = estArr[i];
+        countD ++;
+      }
+    }
+
+    //create the inside brush arrays
+    countE = 0;
+    countD = 0;
+    for(int i = 0; i < arrSize, i++) {
+      if (estArr[i] > arbitraryDateMin && estArr[i] < arbitraryDateMax) {
+        inBrushEst[countE] = estArr[i];
+        countE ++;
+      }
+      if (disArr[i] > arbitraryDateMin && estArr[i] < arbitraryDateMax) {
+        inBrushDis[countD] = estArr[i];
+        countD ++;
+      }
+    }
+
+    // TODO(jheppler): Convert bools to JavaScript-recognized boolean 
+    // See https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean
+    bool isAliveStart;
+    bool isAliveEnd;
+    bool isChangedDuringBrush;
+
+    //dead at the start of the brush (possibly never alive before brush start)
+    if (preBrushEst[preBrushEst.size - 1] < preBrushDis[preBrushDis.size - 1] || preBrushEst.size == 0) {
+      isAliveStart = false;
+    }
+    //alive at the start of the brush (possibly never died before brush start)
+    else if (preBrushEst[preBrushEst.size - 1] > preBrushDis[preBrushDis.size - 1] || (preBrushDis.size == 0 && preBrushEst.size != 0)) {
+      isAliveStart = true;
+    }
+
+    //dead at the end of the brush (possibly never alive before brush end)
+    if(estArrTemp[estArrTemp.size - 1] < disArrTemp[disArrTemp.size - 1] estArrTemp.size == 0) {
+      isAliveEnd = false;
+    }
+    //alive at the end of the brush (possibly never died before brush end)
+    else if(estArrTemp[estArrTemp.size - 1] > disArrTemp[disArrTemp.size - 1] || (disArrTemp.size == 0 && estArrTemp.size != 0)) {
+      isAliveEnd = true;
+    }
+    //state changes during the brush
+    if (inBrushEst.size != 0 || inBrushDis.size != 0) {
+      isChangedDuringBrush = true;
+    }
+    else if (inBrushEst.size == 0 && inBrushDis.size == 0) {
+      isChangedDuringBrush = false;
+    }
+
+    //alive the whole time, and does not change state during the brush
+    if(isAliveStart && !isChangedDuringBrush && isAliveEnd) {
+      return "red";
+    }
+    //established before brush, and dead at the end of the brush
+    if(isAliveStart && isChangedDuringBrush && !isAliveEnd) {
+      return "purple";
+    }
+    //established before brush, and alive at end  - but changed state
+    if(isAliveStart && isChangedDuringBrush && isAliveEnd) {
+      return "yellow";
+    }
+    //established within brush and alive at the end
+    if (!isAliveStart && isChangedDuringBrush && isAliveEnd) {
+      return "green";
+    }
+    //established within brush and dead at the end  - but changed state
+    if (!isAliveStart && isChangedDuringBrush && !isAliveEnd) {
+      return "blue";
+    }
+    //not alive during brush
+    if(!isAliveStart && !isChangedDuringBrush) {
+      return NULL;
+    }
+
+    /*if (sentObj.Est < arbitraryDateMin != "") {
+      return "red";
+    }
+    if (sentObj.Est > arbitraryDateMin) {
+      return "blue";
+    }
+    if (sentObj.Dis1 < arbitraryDateMin && sentObj.Dis1) {
+      return "yellow";
+    }*/
+  }
+
   // temporary code; testing the coloring of points
   test_date = "1885-6-15";
   d3.selectAll("circle.points-est").style("fill", function(d) { return d.Dis1 < test_date && d.Dis1 != "" ? "rgb(255, 255, 191)" : d.Est > test_date ? "rgb(215, 25, 28)" : "rgb(44, 123, 182)" })
